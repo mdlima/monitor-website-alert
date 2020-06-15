@@ -1,0 +1,66 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: monitor-website-alert
+# app and org for use with dashboard.serverless.com
+#app: your-app-name
+#org: your-org-name
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+provider:
+  name: aws
+  runtime: ruby2.7
+  stage: dev
+  region: eu-west-3
+
+layers:
+  gemslayer:
+    path: ruby
+
+functions:
+  monitorSef:
+    handler: handler.monitor_sef
+    timeout: 30
+    memorySize: 256
+    # https://blog.francium.tech/deploying-ruby-gems-with-native-extensions-on-aws-lambda-using-the-serverless-toolkit-9079e34db2ab
+    layers:
+      - { Ref: GemslayerLambdaLayer }
+    package:
+      individually: true
+      exclude:
+        - ruby/**
+        - node_modules/**
+    events:
+      - schedule: cron(0/20 7-21 ? * MON-FRI *)
+      # - schedule: rate(3 minutes)
+    environment:
+      GEM_PATH: /opt/2.7.0
+      SEF_LOGIN: ${self:custom.sef_auth.login}
+      SEF_PWD: ${self:custom.sef_auth.pwd}
+      TWILIO_ACCOUNT_SID: ${self:custom.twilio_auth.account_sid}
+      TWILIO_AUTH_TOKEN: ${self:custom.twilio_auth.auth_token}
+      PHONE_FROM: ${self:custom.alert_phones.phone_lana}
+      PHONE_TO: ${self:custom.alert_phones.phone_marcio}
+
+package:
+  individually: true
+custom:
+  twilio_auth:
+    ${ssm:/aws/reference/secretsmanager/monitor-website-alert/twilio_auth~true}
+  sef_auth:
+    ${ssm:/aws/reference/secretsmanager/monitor-website-alert/sef_auth~true}
+  alert_phones:
+    ${ssm:/aws/reference/secretsmanager/monitor-website-alert/alert_phones~true}
